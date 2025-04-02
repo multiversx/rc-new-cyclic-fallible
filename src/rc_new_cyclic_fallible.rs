@@ -10,7 +10,7 @@ where
 {
     let mut result: Result<(), E> = Ok(());
     let maybe_uninit_rc = Rc::<MaybeUninit<T>>::new_cyclic(|weak_uninit| unsafe {
-        // transmute guaranteed to be ok, because MaybeUniinit has repr(transparent),
+        // transmute guaranteed to be ok, because MaybeUninit has repr(transparent),
         // additionally, the reference is not going to be used in case of error
         let weak: &Weak<T> = core::mem::transmute(weak_uninit);
 
@@ -23,6 +23,9 @@ where
         }
     });
     result?;
-    let raw = Rc::into_raw(maybe_uninit_rc);
-    unsafe { Ok(Rc::from_raw(raw as *const T)) }
+
+    // transmute guaranteed to be ok, because MaybeUninit has repr(transparent)
+    let converted: Rc<T> = unsafe { core::mem::transmute(maybe_uninit_rc) };
+
+    Ok(converted)
 }
