@@ -6,30 +6,26 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  rust_test:
-    name: Rust tests
+  test:
+    name: Rust ${{ matrix.toolchain }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: ["1.85", "1.98"]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          default: true
-          toolchain: "stable"
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup toolchain install ${{ matrix.toolchain }} --profile minimal
       - name: Run tests
-        run: cargo test
-  clippy_check:
-    permissions: write-all
-    name: Clippy linter check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          components: clippy
-          default: true
-      - uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
+        run: |
+          cargo +${{ matrix.toolchain }} test --all-targets
+          cargo +${{ matrix.toolchain }} test --doc
+      - name: Run Clippy
+        run: |
+          rustup component add clippy --toolchain ${{ matrix.toolchain }}
+          cargo +${{ matrix.toolchain }} clippy --all-targets -- -D warnings
