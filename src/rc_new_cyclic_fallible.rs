@@ -1,9 +1,36 @@
 use std::mem::MaybeUninit;
 use std::{rc::Rc, rc::Weak};
 
-/// Helps building a synchronous Rc cyclic reference, from a closure that can fail.
+/// Creates a cyclic [`Rc`] from a closure that may fail.
 ///
-/// Will be replaced by [UniqueRc](https://doc.rust-lang.org/stable/alloc/rc/struct.UniqueRc.html), once it gets stabilized.
+/// This has the same weak-reference behavior as [`Rc::new_cyclic`]: the supplied
+/// [`Weak`] cannot be upgraded while `f` runs. It can be cloned and stored in the
+/// returned value; once this function returns `Ok`, it upgrades to that value.
+/// If `f` returns `Err`, the allocation is discarded and any cloned weak references
+/// can no longer be upgraded.
+///
+/// # Examples
+///
+/// ```
+/// use std::rc::Weak;
+///
+/// use rc_new_cyclic_fallible::rc_new_cyclic_fallible;
+///
+/// struct Node {
+///     self_reference: Weak<Node>,
+/// }
+///
+/// let node = rc_new_cyclic_fallible(|weak| {
+///     Ok::<_, ()>(Node {
+///         self_reference: weak.clone(),
+///     })
+/// })?;
+///
+/// assert!(node.self_reference.upgrade().is_some());
+/// # Ok::<(), ()>(())
+/// ```
+///
+/// [`Rc::new_cyclic`]: std::rc::Rc::new_cyclic
 pub fn rc_new_cyclic_fallible<T, E, F>(f: F) -> Result<Rc<T>, E>
 where
     F: FnOnce(&Weak<T>) -> Result<T, E>,

@@ -1,7 +1,41 @@
 # rc_new_cyclic_fallible function
 
-At least as of Rust 1.85, there is no standard way of using Rc::new_cyclic with a fallible closure, that is a closure that can fail.
+`rc_new_cyclic_fallible` is a fallible variant of [`Rc::new_cyclic`]. It creates
+an `Rc<T>` whose value can hold a `Weak<T>` reference to itself, while allowing
+the initializer to return an error.
 
-[UniqueRc](https://doc.rust-lang.org/stable/alloc/rc/struct.UniqueRc.html) is a promising development, but it is currently unstable.
+## MSRV
 
-This solution is as follows: the `rc_new_cyclic_fallible` function takes a closure that returns a `Result`, and returns a `Result` with the same error type itself.
+The minimum supported Rust version is 1.85.
+
+## Usage
+
+```rust
+use std::rc::{Rc, Weak};
+
+use rc_new_cyclic_fallible::rc_new_cyclic_fallible;
+
+struct Node {
+		parent: Weak<Node>,
+}
+
+let node: Rc<Node> = rc_new_cyclic_fallible(|weak| {
+		Ok::<_, &'static str>(Node {
+				parent: weak.clone(),
+		})
+})?;
+
+assert!(node.parent.upgrade().is_some());
+# Ok::<(), &'static str>(())
+```
+
+## Behavior
+
+- The closure receives a `Weak<T>` that cannot be upgraded until initialization
+	succeeds, matching `Rc::new_cyclic`.
+- A successful closure result returns `Rc<T>`; weak references cloned by the
+	closure then upgrade to it.
+- An error is returned unchanged. Any weak references cloned by the closure
+	remain valid handles but cannot be upgraded.
+
+[`Rc::new_cyclic`]: https://doc.rust-lang.org/stable/std/rc/struct.Rc.html#method.new_cyclic
